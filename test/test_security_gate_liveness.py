@@ -444,7 +444,16 @@ def _url_payload_command(n: int) -> str:
 #: leaves joining the override arm, and the resolved-root list it reads, in
 #: ``paths_targets``; and one ``or`` clause, its import and three ``TYPE_CHECKING``
 #: lines in ``paths``. The registry lives in ``agent_sdk``.
-_PACKAGE_LINE_BUDGET = 32_111
+#:
+#: Raised again, from 32,111, for ``redaction._SRI_INTEGRITY_RE``: pass 3 skips a run
+#: that is the whole digest of a Subresource Integrity value (``sha256-<43>=``,
+#: ``sha384-<64>``, ``sha512-<86>==``), because a digest is random base64 and a window
+#: inside it clears every gate. The shape is closed: the lowercase algorithm name after
+#: a non-run character, exactly that algorithm's digest length, exactly its padding,
+#: and nothing glued after. One regex of three fixed-width alternatives, a helper that
+#: returns the digest spans, their comment, and the one clause beside the document-link
+#: exemption. No pass widened, no threshold moved, and the exfil URL scan is unchanged.
+_PACKAGE_LINE_BUDGET = 32_168
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second
