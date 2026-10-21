@@ -444,7 +444,14 @@ def _url_payload_command(n: int) -> str:
 #: leaves joining the override arm, and the resolved-root list it reads, in
 #: ``paths_targets``; and one ``or`` clause, its import and three ``TYPE_CHECKING``
 #: lines in ``paths``. The registry lives in ``agent_sdk``.
-_PACKAGE_LINE_BUDGET = 32_111
+#:
+#: Raised again, from 32,111, by 32 lines for the ``pkill``/``killall`` by-name self-kill
+#: window: ``_bare_kill_raw_bodies`` takes an anchor-basename set so the by-name leg reuses
+#: the quote-aware raw re-derivation the bare-``kill`` leg already had, the shared body
+#: search is factored into ``_raw_body_names_self``, and ``_is_self_kill`` runs the raw
+#: window once per anchor family. New detection for the public decoy shape, as a UNION with
+#: the token walk; no rule, threshold or existing pass changed.
+_PACKAGE_LINE_BUDGET = 32_143
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second
