@@ -12,7 +12,8 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 from kiro_crew.security import DENIED_ROOT_PARTS
-from kiro_crew.security.redaction import _credential_matches
+from kiro_crew.security.redaction import _credential_matches, label_spans, paired_secret_spans
+from kiro_crew.security.secret_catalog import catalog_findings
 
 Response = tuple[int, str, bytes]
 
@@ -457,7 +458,12 @@ def contains_credential(runtime: Any, data: bytes) -> bool:
             # material; require an armoured body before refusing that case.
             continue
         return True
-    return False
+    # A labelled AWS secret or session token, an ``Authorization`` credential, a
+    # secret paired with an AWS key ID or a Secret-tier catalog finding: not
+    # alternation branches, but credentials the redactor removes all the same.
+    if any(span.rule != "secret_label" for span in label_spans(text)):
+        return True
+    return bool(paired_secret_spans(text) or catalog_findings(text))
 
 
 def is_project_secret(runtime: Any, root: Any, target: Any) -> bool:
