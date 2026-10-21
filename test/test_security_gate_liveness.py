@@ -444,7 +444,11 @@ def _url_payload_command(n: int) -> str:
 #: leaves joining the override arm, and the resolved-root list it reads, in
 #: ``paths_targets``; and one ``or`` clause, its import and three ``TYPE_CHECKING``
 #: lines in ``paths``. The registry lives in ``agent_sdk``.
-_PACKAGE_LINE_BUDGET = 32_111
+#:
+#: Raised again, from 32,111, for the ``-c`` operand that skips a redirect word, and the
+#: rm floor reading each nested-shell payload through the shared extractor and the
+#: shared data-consumer exemption. No pattern moved.
+_PACKAGE_LINE_BUDGET = 32_230
 
 #: Ceiling on any ONE file in the package. This is what the bound is really for --
 #: a package total says nothing about a single file growing back into a second
