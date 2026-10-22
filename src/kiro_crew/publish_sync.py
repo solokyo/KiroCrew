@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import enum
 import hashlib
+import html as _html
 import logging
 import os
 import re
@@ -38,7 +39,7 @@ import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Final
 
 # Concrete publish providers are NOT imported here. In the public edition no
 # provider is registered (the registry stays empty → get_provider() raises
@@ -357,6 +358,39 @@ def _redact_untrusted(text: str, source: str) -> str:  # noqa: ARG001
 _NON_TEXT_KINDS: frozenset[str] = NON_TEXT_KINDS
 
 
+#: Put ahead of a crewmate's html report (``goal_report``) when it is published or
+#: synced, so the copy a destination serves is as static as the one the viewer
+#: opens: no script, no fetch, no outside image, font or frame, only the page's
+#: inline styles and ``data:`` images. A ``meta`` policy governs everything after
+#: it and a later one can only tighten it, so the prefix comes before every page
+#: byte; the page's own doctype then parses as an ignored repeat.
+STATIC_REPORT_PREFIX: Final[str] = (
+    '<!DOCTYPE html><meta http-equiv="Content-Security-Policy" content="'
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; "
+    "base-uri 'none'; form-action 'none'\">"
+)
+
+
+def _static_report_document(name: str, content: str) -> str:
+    """A crewmate's report as the document a destination serves: one frame.
+
+    The page goes in an ``iframe`` whose ``sandbox`` is EMPTY, as its ``srcdoc``
+    attribute, escaped. An empty sandbox withholds ``allow-scripts``, and that also
+    sets the sandboxed automatic features flag, so neither a script nor a refresh
+    ``meta`` in the page runs, and nothing has to parse or clean the page to get
+    there. Escaped into one attribute value, none of the page's markup is live in
+    the outer document. Inside, :data:`STATIC_REPORT_PREFIX` still comes first, so
+    the page also loads nothing from outside.
+    """
+    inner = STATIC_REPORT_PREFIX + content
+    return (
+        f'<!DOCTYPE html><meta charset="utf-8"><title>{_html.escape(name)}</title>'
+        "<style>html,body{margin:0;height:100%}"
+        "iframe{display:block;border:0;width:100%;height:100%}</style>"
+        f'<iframe sandbox="" srcdoc="{_html.escape(inner, quote=True)}"></iframe>'
+    )
+
+
 def _render_content(art: Artifact) -> tuple[str, str]:
     """Return ``(rendered_text, content_type)`` for an artifact's current
     content, applying the widget standalone-HTML wrap where needed.
@@ -377,6 +411,9 @@ def _render_content(art: Artifact) -> tuple[str, str]:
     content = _redact_untrusted(art.content or "", art.source)
     if art.kind == "widget":
         content = wrap_widget_html(content)
+    if art.kind == "html" and art.goal_report is True:
+        # The title goes in the uploaded document, so it takes the same redaction.
+        content = _static_report_document(_redact_untrusted(art.name, art.source), content)
     return content, content_type
 
 
