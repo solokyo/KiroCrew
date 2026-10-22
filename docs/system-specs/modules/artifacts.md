@@ -1247,7 +1247,11 @@ migration that rewrites or drops the stranded tags first.
 
 A `dashboard` artifact holds one mate's layout package — `bound_to`,
 `model`, `view` and `theme` — canonicalised by
-`kiro_crew.artifact_store.dashboard_package` on every write. Five rules differ
+`kiro_crew.artifact_store.dashboard_package` on every write. A missing `theme`,
+or a `theme` with no `tokens`, is stored as `{"tokens": {}}`, because an MCP
+client can drop an empty object before it arrives; so `dashboard_save` (its MCP
+schema and `DASHBOARD_SAVE_SCHEMA`) takes `theme` as optional, and a bad token
+value is still refused. Five rules differ
 from every other kind. The first three are enforced in `ArtifactStore`,
 because they are about the record a write lands on; the last two are enforced
 where the thing they judge is known — the writer's identity at the HTTP layer,
@@ -1312,7 +1316,17 @@ the page's shape in the canonicaliser:
   at the HTTP layer and described below.
 - **`view.html` is an agent-written page, and its shape is checked while its
   author is still there.** Exactly one of `view.html` or `view.blocks`, never
-  both and never neither. The HTML is an inline BODY: the host supplies
+  both and never neither. A package bound to a crewmate (`bound_to` of
+  `crewmate:<slug>`) is `view.html` only: the gate refuses its `view.blocks` and
+  names the `view.html` shape to send instead
+  (`dashboard_package._require_html_for_a_crewmate`), because the crewmate
+  Dashboard tab draws a page and has no block renderer. A package bound to a
+  session may still be written as blocks. The page is drawn wearing its
+  `theme`: `member_dashboard_fields.render_package_page` puts one `<style>`
+  ahead of the page, after the host's own stylesheet, holding the tokens on
+  `:root` and then `theme.css` (`dashboard_package.theme_stylesheet`, which runs
+  the gate's own theme check, so a stored theme the gate would now refuse draws
+  nothing and the page keeps the host's look). The HTML is an inline BODY: the host supplies
   `<!doctype>`, `<html>`, `<head>` and `<body>` and owns the page's security
   policy, so a document tag in the field is refused — by
   `dashboard_frame.validate_page`, called here so the author meets the frame's
@@ -1449,6 +1463,48 @@ request filter that answers only the page, no name resolution, a proxy at a clos
 and no WebRTC. A library the page loads from the CDN allowlist is therefore not fetched,
 and a page whose script stops at that library's undefined name is `skipped` and not
 `failed` (any other error is still `failed`).
+
+A `skipped` result carries a `note` saying in words that nothing was run or
+checked (`dashboard_page_checks.VERIFICATION_SKIPPED`). The reply also lists
+every field the model declares in `fields`, each with its `type` and its
+`source` (`fold:<fold>.<path>`, or `manual` for a hand-written one), names the
+hand-written ones under `manual_fields` with a `manual_note` saying they go stale
+without writes. Two checks the gateway makes itself, on the package text, ride
+the same reply whatever the run did (`dashboard/handlers/dashboard_page_checks.py`);
+neither refuses the save. `shape_warnings` names each `array`, `object` or
+`timestamp` field the page binds with `data-dashboard-field`, because the host
+fills that cell as text and shows `[]` or a raw ISO string; `dashboard_types` and
+`dashboard_fields` carry the same `rendering` advice per type. `theme_warnings`
+fires, unless the CSS names both schemes (`prefers-color-scheme`, `light-dark(`,
+`data-mode`, `data-theme`), when a fixed text colour sits on a background the host
+paints: each CSS rule in `theme.css` and the page's own `<style>` that fixes
+`color` is checked for a fixed opaque background on the same rule, on a rule for an
+ancestor selector, or on the page (`html`, `body`, `:root`), so a coloured dot
+elsewhere is not read as the page's background. A `var()` of a host theme variable
+(`dashboard_page_checks.HOST_THEME_VARS`, the names the tab sets) follows the
+scheme; any other `var()` draws its theme token or its fallback, so
+`var(--my-fg, #eee)` counts as fixed. The reverse fires too: a fixed page or token
+background with no fixed text colour. Such a page reads in one scheme and not the
+other. It also names (`dashboard_page_checks.UNDEFINED_VAR`) every colour `var()`
+-- in the CSS or an inline `style` -- whose variable neither the tab
+(`HOST_THEME_VARS`, the names `website/src/lib/widgetSrcdoc.ts` `THEME_VAR_NAMES`
+copies into the frame for the scheme in force), the theme tokens nor the page's own
+CSS defines, when its fallback is a fixed colour: `var(--my-fg, #e8e8e8)` draws that
+fallback in both schemes. The host stylesheet the page is composed with
+(`dashboard_frame._HOST_CSS`) falls back per scheme with `light-dark()`, never to
+dark-only values.
+The `kirocrew-core` MCP tools render all of it as text (`mcp_panel._render_saved`,
+`_render_rendering`), so the crewmate reads the field types and both warnings in
+its `dashboard_save` result, not only an HTTP caller.
+A type check (`font_warnings`, carried in `theme_warnings`) adds a soft line,
+worded as a pairing rule, when the page sets more than two distinct font
+families (a role variable and its generic families count as one: sans, serif
+or mono) or names a typeface instead of a role variable or a generic family;
+an `@font-face` that loads an inline `data:` font counts as the family it
+names. The frame's base styles carry three type role variables built only from
+CSS generic families, never a named typeface: `--font-sans: system-ui,
+sans-serif` (the body default), `--font-serif: ui-serif, serif` and
+`--font-mono: ui-monospace, monospace`.
 
 It costs the gateway little by construction. It runs only for a save of `view.html`,
 never for a write, a preview, an apply or a page load. One check runs at a time across

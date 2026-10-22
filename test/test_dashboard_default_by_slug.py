@@ -228,7 +228,9 @@ class TestTheSuggestionsDecisionIsMadeOnce:
         instance.set_structure_lock("mate", True)
         with patch.object(dashboard_agentic, "bound_package", return_value="my-pkg"):
             block = dashboard_agentic.turn_block("mate")
-        assert dashboard_agentic.SUGGESTIONS_LINE in block, block
+        # Locked: the page's state and the lock's refusal, no line asking for a page.
+        assert dashboard_agentic.SUGGESTIONS_STATE in block, block
+        assert dashboard_agentic.SUGGESTIONS_LINE not in block, block
 
     def test_an_older_records_bound_page_is_what_the_turn_block_names(self, builtin: Path) -> None:
         """No template page and no pin, but the older rule draws a bound page a person cut.
@@ -320,3 +322,167 @@ class TestTheShippedRegistry:
 
     def test_project_report_still_ships_for_a_crewmate_to_adopt(self) -> None:
         assert instance.DEFAULT_TEMPLATE_ID in catalog.list_templates().by_id
+
+
+class TestTheBuildYourPageLineNeverReplacesAPage:
+    """`goal_reminder.dashboard_line` asks a crewmate to write a page only while its tab
+    shows nothing of its own and it has a goal and confirmed milestones, so a template
+    page the person picked, or the page named for the crewmate, is never replaced on a
+    wake."""
+
+    GOAL = {"id": "g00000001", "text": "Keep the docs current"}
+    KR = {"id": "k00000001", "text": "Pages reviewed", "target": "5", "goal_ids": ["g00000001"]}
+
+    def _line(self, slug: str, *, krs: bool = True) -> str:
+        from kiro_crew.dashboard import goal_reminder
+
+        rec = {"goals": [self.GOAL], "key_results": [self.KR] if krs else []}
+        return goal_reminder.dashboard_line(slug, rec)
+
+    def test_an_empty_tab_with_a_goal_and_milestones_gets_the_line(self, builtin: Path) -> None:
+        from kiro_crew.dashboard import goal_reminder
+
+        assert dashboard_agentic.tab_shows_suggestions("mate") is True
+        assert self._line("mate") == goal_reminder.DASHBOARD_BUILD_LINE
+
+    def test_a_goal_without_milestones_gets_no_line(self, builtin: Path) -> None:
+        assert self._line("mate", krs=False) == ""
+
+    def test_no_goal_gets_no_line(self, builtin: Path) -> None:
+        from kiro_crew.dashboard import goal_reminder
+
+        assert goal_reminder.dashboard_line("mate", {"goals": [], "key_results": [self.KR]}) == ""
+
+    def test_a_template_page_in_force_gets_no_line(self, builtin: Path) -> None:
+        instance.adopt("mate", "fixture-other")
+        assert dashboard_agentic.tab_shows_suggestions("mate") is False
+        assert self._line("mate") == ""
+
+    def test_the_page_named_for_the_crewmate_gets_no_line(self, builtin: Path) -> None:
+        assert dashboard_agentic.tab_shows_suggestions(SLUG) is False
+        assert self._line(SLUG) == ""
+
+    def test_a_bound_package_gets_no_line(self, builtin: Path) -> None:
+        with patch.object(dashboard_agentic, "bound_package", return_value="my-pkg"):
+            assert self._line("mate") == ""
+
+    def test_a_locked_layout_gets_no_line(self, builtin: Path) -> None:
+        # A lock holds for a crewmate that never adopted, and an apply would be refused.
+        instance.set_structure_lock("mate", True)
+        assert dashboard_agentic.tab_shows_suggestions("mate") is True
+        assert self._line("mate") == ""
+
+    def test_the_line_asks_for_one_ready_message_after_the_apply(self, builtin: Path) -> None:
+        from kiro_crew.dashboard import goal_reminder
+
+        line = goal_reminder.DASHBOARD_BUILD_LINE
+        assert "dashboard_save" in line and "dashboard_apply" in line
+        assert "one short message" in line and "Dashboard tab" in line
+
+    def test_once_the_page_is_applied_the_line_is_gone(self, builtin: Path) -> None:
+        """The applied page is on screen, so the next wake carries no line and the
+        crewmate posts no second message."""
+        assert self._line("mate") != ""
+        with patch.object(dashboard_agentic, "package_on_screen", return_value="my-pkg"):
+            assert dashboard_agentic.tab_shows_suggestions("mate") is False
+            assert self._line("mate") == ""
+
+    def test_the_line_names_the_tab_variables_and_the_default_look(self, builtin: Path) -> None:
+        from kiro_crew.dashboard import goal_reminder
+        from kiro_crew.dashboard.handlers.dashboard_page_checks import HOST_THEME_VARS
+
+        line = goal_reminder.DASHBOARD_BUILD_LINE
+        named = {f"--{n}" for n in __import__("re").findall(r"var\(--([\w-]+)\)", line)}
+        # Every variable the line names is one the tab sets, and the core ones are there.
+        assert named and named <= HOST_THEME_VARS
+        assert {"--bg", "--text", "--card", "--border", "--accent", "--muted"} <= named
+        assert "prefers-reduced-motion" in line and "the motion is off" in line
+
+    def test_the_line_asks_for_live_work_drawn_by_kind(self, builtin: Path) -> None:
+        from kiro_crew.dashboard import goal_reminder
+
+        line = goal_reminder.DASHBOARD_BUILD_LINE
+        # Goal and milestones live on the Profile tab: not the default content.
+        assert "not your goal or milestones" in line and "Profile" in line
+        assert "goal for the goal" not in line
+        # It names the live-work folds it binds.
+        for fold in ("work", "workstreams", "subagents", "tools", "timeline", "waiting", "usage"):
+            assert f" {fold} " in f" {line} ".replace(",", " "), fold
+        # A style the user asked for wins; without one there is no borrowed look.
+        assert "user asked for a style, which wins" in line
+        assert "no borrowed look or metaphor" in line
+        # Each value is drawn as the kind of information it is.
+        assert "drawn as the kind of information it is" in line
+        for kind in (
+            "a chart of that change",
+            "its progress",
+            "progress side by side",
+            "stands out",
+            "moving feed",
+            "a count is a count",
+        ):
+            assert kind in line, kind
+        assert "values animate to new values" in line and "prefers-reduced-motion" in line
+        # A progress needs a measure; an uncovered value gets plain words, not raw.
+        assert "a state alone is not a progress" in line
+        assert "never the raw value" in line
+        # No scene, theme or concrete motif, layout or effect is prescribed.
+        low = line.lower()
+        for word in (
+            "scene",
+            "theme you pick",
+            "neon",
+            "rain",
+            "weather",
+            "lantern",
+            "lanes",
+            "tracks",
+            " map",
+            "hero",
+            "motif",
+            "palette",
+        ):
+            assert word not in low, word
+
+
+class TestTheTurnBlockNeverAsksForAPage:
+    """The ``[DASHBOARD]`` block rides EVERY crewmate turn, unrelated ones included, so
+    it states where the page stands and never tells the crewmate to build or apply one:
+    that is the gated build line's job (``goal_reminder.dashboard_line``), or the
+    user's. A locked tab gets the lock's own refusal and nothing that reads as "write
+    one"."""
+
+    def test_an_unrelated_turn_on_the_suggestions_page_is_not_told_to_build(
+        self, builtin: Path
+    ) -> None:
+        block = dashboard_agentic.turn_block("mate")
+        assert dashboard_agentic.SUGGESTIONS_STATE in block
+        assert "dashboard_apply it" not in block and "dashboard_save it" not in block
+        assert "covers building one when the user asks" in block
+        for order in ("Write ", "dashboard_save", "dashboard_apply"):
+            assert order not in block, order
+
+    def test_the_gated_first_build_still_fires_with_save_and_apply(self, builtin: Path) -> None:
+        """The agreed product behaviour: once a crewmate knows its page (a goal and
+        confirmed milestones) and its tab is empty, the gated wake builds AND applies
+        the first page. Only the every-turn duplicate was removed."""
+        from kiro_crew.dashboard import goal_reminder
+
+        rec = {
+            "goals": [{"id": "g00000001", "text": "Keep the docs current"}],
+            "key_results": [{"id": "k00000001", "text": "Pages", "target": "5"}],
+        }
+        line = goal_reminder.dashboard_line("mate", rec)
+        assert line == goal_reminder.DASHBOARD_BUILD_LINE
+        assert "dashboard_save" in line and "dashboard_apply" in line
+        # The every-turn block on the same tab carries neither.
+        block = dashboard_agentic.turn_block("mate")
+        assert "dashboard_save" not in block and "dashboard_apply" not in block
+
+    def test_a_locked_tab_gets_the_lock_and_no_build_instruction(self, builtin: Path) -> None:
+        instance.set_structure_lock("mate", True)
+        block = dashboard_agentic.turn_block("mate")
+        assert instance.LOCKED_REFUSAL in block
+        assert dashboard_agentic.SUGGESTIONS_LINE not in block
+        for hint in ("dashboard skill covers", "dashboard_save", "Write "):
+            assert hint not in block, hint

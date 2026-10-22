@@ -210,6 +210,29 @@ _OPAQUE: Final[dict[str, str]] = {
 }
 
 
+def _row_keys() -> dict[str, dict[str, Any]]:
+    """The rows a page draws in a script, each ``"<fold>.<path>"`` -> the keys one row carries.
+
+    A list is a leaf no Model field can index, and a map keyed by a runtime id is
+    opaque, so neither shows its rows' keys in ``shape``. A page drawing them still
+    needs the names, or it guesses one (``label``, ``title``) the row never had. Read
+    from the folds' own constants, so the list cannot drift from what the fold writes.
+    """
+    from kiro_crew.crew_log.projection_side_panel import TIMELINE_MOMENT_KEYS
+    from kiro_crew.crew_log.projection_subagents import SUBAGENT_ROW_KEYS
+
+    return {
+        "timeline.moments": {
+            "row_keys": list(TIMELINE_MOMENT_KEYS),
+            "names_the_row": "type",
+        },
+        "subagents.by_id": {
+            "row_keys": list(SUBAGENT_ROW_KEYS),
+            "names_the_row": "task",
+        },
+    }
+
+
 @dataclass(frozen=True)
 class FoldType:
     """One data type a dashboard block can bind to.
@@ -309,12 +332,14 @@ def _node(fold: str, path: str, value: Any) -> dict[str, Any]:
         # FIELD_TYPES` and ``integer`` is not one of them -- a validator comparing types
         # must keep matching ``number``.
         return {"type": jtype, "integer": isinstance(value, int)}
+    rows = _row_keys().get(key, {})
     if jtype != "object":
         # An array is a LEAF: a fold path cannot index one, so an element shape here
-        # would describe something no Model field can name.
-        return {"type": jtype}
+        # would describe something no Model field can name. Its row keys are still
+        # named, for a script that draws the rows.
+        return {"type": jtype, **rows}
     if key in _OPAQUE:
-        opaque: dict[str, Any] = {"type": "object", "opaque": True}
+        opaque: dict[str, Any] = {"type": "object", "opaque": True, **rows}
         keyed_by = _OPAQUE[key]
         if keyed_by:
             opaque["keyed_by"] = keyed_by

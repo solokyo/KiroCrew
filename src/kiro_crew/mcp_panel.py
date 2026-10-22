@@ -159,11 +159,11 @@ def _tool_definitions() -> list[dict[str, Any]]:
             "name": "dashboard_types",
             "description": (
                 "READ THIS BEFORE YOU COMPOSE A DASHBOARD. Lists every DATA TYPE "
-                "you can bind a dashboard block to -- one per fold of your crew "
+                "you can bind a dashboard field to -- one per fold of your crew "
                 "log -- and for each one: its name, the field shape inside it (so "
                 "you can name a path instead of guessing one), which fold the "
                 "value is folded from, and how far that fold has been folded for "
-                "you right now. A block bound to a path this does not list draws "
+                "you right now. A field bound to a path this does not list draws "
                 "nothing, so read the shape and copy the path out of it. Three "
                 "things to read carefully: an `array` is where the shape STOPS, "
                 "because a path cannot reach inside a list; an `opaque` object is "
@@ -236,7 +236,7 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "Dashboard. A page is three declarations and this call saves all "
                 "three at once: a "
                 "`model` naming the fields the page holds and where each value "
-                "comes from, a `view` laying out the blocks that draw them, and a "
+                "comes from, a `view` holding the page itself as inline HTML, and a "
                 "`theme` of tokens. Read dashboard_fields first -- it tells you "
                 "the page in force -- and tell the person what you are changing, "
                 "because the page is theirs. A field reads either from a crew-log fold "
@@ -244,10 +244,10 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 'gateway) or from you (`{"agentic": true}`) -- never a number you '
                 "type into the layout, which would be true only at the moment you "
                 "typed it. The "
-                "block types and data types come from a CLOSED catalog, so a "
+                "data types come from a CLOSED catalog, so a "
                 "package naming one that does not exist is refused and the refusal "
                 "lists the ones that do: recompose from that list. NAME YOUR FIELDS "
-                "AND BLOCKS FOR A READER -- `open_prs`, not a token. A name a "
+                "FOR A READER -- `open_prs`, not a token. A name a "
                 "redactor would mask is refused, because a name is a key the page "
                 "joins its cells by and cannot be rewritten on the way out; the "
                 "refusal tells you which position to rename. Values never version "
@@ -293,11 +293,29 @@ def _tool_definitions() -> list[dict[str, Any]]:
                     "view": {
                         "type": "object",
                         "description": (
-                            'The layout, as `{"blocks": [...]}`, in the order a '
-                            "reader meets them -- that order IS the layout. Each "
-                            "block carries an `id`, a `type` from the block "
-                            "catalog, the `fields` it draws (every one declared by "
-                            "the model) and an optional `title`."
+                            'The page, as `{"html": "..."}`: inline HTML (your '
+                            "markup, CSS and script) with one element carrying "
+                            '`data-dashboard-field="<name>"` for each field the '
+                            "model declares, which the host fills as text. Colour it "
+                            "with the variables the tab sets for light and dark "
+                            "(var(--bg), var(--card), var(--text), var(--muted), "
+                            "var(--border), var(--accent), var(--ok), var(--warn), "
+                            "var(--danger)...); any other var() name draws its fixed "
+                            "fallback in both schemes. With no style asked, the page "
+                            "shows the live work, not your goal, with no borrowed "
+                            "look: each value drawn as the kind of information it "
+                            "is (a change over time a chart, work toward done its "
+                            "progress, parallel workstreams side by side, what "
+                            "waits on the user standing out, recent events a "
+                            "moving feed, a count a count), rows of detail below "
+                            "that fit the width, values that animate when they "
+                            "change, motion off under prefers-reduced-motion. "
+                            "Words agree with the folded numbers and with what is "
+                            "drawn, and are plain: no raw event type, phase, "
+                            "state name or internal id; nothing covers anything. "
+                            "A surface the page paints "
+                            "itself needs text colours that read on it in both "
+                            "schemes. The dashboard skill has the detail."
                         ),
                     },
                     "theme": {
@@ -307,12 +325,13 @@ def _tool_definitions() -> list[dict[str, Any]]:
                             'optional `"css"` string beside it for rules the '
                             "tokens cannot express. None of "
                             "the look is fixed by the product, so this is where "
-                            "you set it. An empty `tokens` object is valid and "
+                            "you set it. It may be omitted, as may `tokens`: "
+                            "either is stored as an empty `tokens` object, which "
                             "takes the defaults."
                         ),
                     },
                 },
-                "required": ["model", "view", "theme"],
+                "required": ["model", "view"],
             },
         },
         {
@@ -590,6 +609,9 @@ def _call_tool_inner(name: str, args: dict[str, Any]) -> str:
         page: dict[str, Any] = {}
         for key in ("model", "view", "theme"):
             part = args.get(key)
+            if part is None and key == "theme":
+                # Omitted, or dropped by the client as an empty object: the default look.
+                part = {"tokens": {}}
             if not isinstance(part, dict):
                 return (
                     f"Error: `{key}` must be an object -- a page is a `model`, a "
@@ -608,7 +630,7 @@ def _call_tool_inner(name: str, args: dict[str, Any]) -> str:
             # from. Shortened to a generic failure it would cost a cycle and teach
             # nothing.
             return redact(f"Error: {api_err}")
-        return redact(_render_saved(d.get("saved") or {}, d.get("verification")))
+        return redact(_render_saved(d.get("saved") or {}, d.get("verification"), reply=d))
 
     if name == "dashboard_templates":
         query = args.get("query")
@@ -780,20 +802,45 @@ def _render_verification(verification: Any) -> list[str]:
     return lines
 
 
-def _render_saved(saved: dict[str, Any], verification: Any = None) -> str:
-    """What was SAVED, the page check's verdict, and the one call that puts it live.
+def _render_saved(
+    saved: dict[str, Any], verification: Any = None, *, reply: dict[str, Any] | None = None
+) -> str:
+    """What was SAVED, the page check's verdict, the gateway's own checks, and the next call.
 
-    The verdict comes before the next step: a ``failed`` page is fixed and saved again
-    before it is applied.
+    The verdict and the checks come before the next step: a ``failed`` page is fixed
+    and saved again before it is applied. *reply* is the whole save reply, read for its
+    ``fields``, ``manual_fields``, ``shape_warnings`` and ``theme_warnings``, which the
+    crewmate has to see to act on: a reply that dropped them would check for nobody.
     """
+    reply = reply or {}
     lines = [
         f"SAVED as your dashboard package ({saved.get('fields')} field(s) in "
-        f"{saved.get('blocks')} block(s)). It is not live yet."
+        f"its page). It is not live yet."
     ]
     checked = _render_verification(verification)
     if checked:
         lines.append("")
         lines.extend(checked)
+        note = verification.get("note") if isinstance(verification, dict) else None
+        if isinstance(note, str) and note:
+            lines.append(f"  {note}")
+    rows = reply.get("fields")
+    if isinstance(rows, list) and rows:
+        lines.append("")
+        lines.append("Fields:")
+        for row in rows:
+            if isinstance(row, dict):
+                kind = row.get("type") or "untyped"
+                lines.append(f"  {row.get('field')} ({kind}) -- {row.get('source')}")
+    manual_note = reply.get("manual_note")
+    if reply.get("manual_fields") and isinstance(manual_note, str):
+        lines.append(f"  {manual_note}")
+    for key, head in (("shape_warnings", "Shape warnings"), ("theme_warnings", "Theme warnings")):
+        warned = reply.get(key)
+        if isinstance(warned, list) and warned:
+            lines.append("")
+            lines.append(f"{head}:")
+            lines.extend(f"  - {line}" for line in warned if isinstance(line, str))
     lines.append("")
     lines.append(
         "Next: call dashboard_apply with no arguments to put it on your crewmate's "
@@ -893,6 +940,16 @@ def _flatten(node: Any, prefix: str = "") -> list[str]:
     return [f"{label}: {ntype}{tail}"]
 
 
+def _render_rendering(payload: dict[str, Any]) -> list[str]:
+    """The per-type rendering advice a page needs for a list, a record or a time."""
+    advice = payload.get("rendering")
+    if not isinstance(advice, dict) or not advice:
+        return []
+    lines = ["", "Drawing a type a data-dashboard-field cell shows raw:"]
+    lines.extend(f"  {kind}: {how}" for kind, how in advice.items() if isinstance(how, str))
+    return lines
+
+
 def _render_types(payload: dict[str, Any]) -> str:
     """The data-type catalog as the agent reads it: one type, then its paths.
 
@@ -905,12 +962,12 @@ def _render_types(payload: dict[str, Any]) -> str:
     rows = payload.get("types")
     if not isinstance(rows, list) or not rows:
         return (
-            "No data type came back, so there is nothing to bind a dashboard block to "
+            "No data type came back, so there is nothing to bind a dashboard field to "
             "yet. Tell the human: this gateway's fold registry answered empty."
         )
     lines = [
-        f"{len(rows)} data types you can bind a dashboard block to. Each one is a fold "
-        "of your crew log; bind a block by naming the type and a path from its list.",
+        f"{len(rows)} data types you can bind a dashboard field to. Each one is a fold "
+        "of your crew log; bind a field by naming the type and a path from its list.",
     ]
     unread = False
     for row in rows:
@@ -963,6 +1020,7 @@ def _render_types(payload: dict[str, Any]) -> str:
         "null until something fills it. Binding one is allowed and it may draw nothing, "
         "so prefer a path with a real type."
     )
+    lines.extend(_render_rendering(payload))
     return "\n".join(lines)
 
 
@@ -1009,8 +1067,9 @@ def _render_fields(payload: dict[str, Any]) -> str:
     lines: list[str] = []
     if not isinstance(template, dict):
         lines.append(
-            "You have no dashboard yet, so there is no field to write. Ask the human "
-            "to adopt a template for you."
+            "You have no dashboard page yet, so there is no field to write. Write your "
+            "own HTML page (view.html) with the dashboard skill: dashboard_save it, then "
+            "dashboard_apply it."
         )
     else:
         lines.append(
@@ -1107,6 +1166,7 @@ def _render_fields(payload: dict[str, Any]) -> str:
             f"A refused write names the fields you could have used. Fix it from that "
             f"list and retry; after {budget} tries, ask the human."
         )
+    lines.extend(_render_rendering(payload))
     return "\n".join(lines)
 
 

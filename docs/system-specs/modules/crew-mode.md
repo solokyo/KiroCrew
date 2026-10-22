@@ -2232,6 +2232,39 @@ draft guard, so a veto neither remounts the card nor loses its pushed form.
   a wake every so often that keeps the work moving while the user is away, the
   chat quiet, the Dashboard tab showing what it did, each run using credits),
   otherwise it says what the mate works on first.
+- the **build-your-page line** (`goal_reminder.dashboard_line`): only while the
+  mate's Dashboard tab shows nothing of its own -- no package bound to it
+  (`dashboard_agentic.bound_package`) and the suggestions page
+  (`dashboard_agentic.tab_shows_suggestions`, the answer `turn_block` and the
+  read route give) -- so a template page the person picked, or the page named
+  for the mate, is never replaced on a wake; and only once the goal record
+  holds a goal and confirmed milestones (`goal_reminder.knows_its_page`:
+  `member_goals.has_goal` and a stored key result, which exists only after the
+  person confirms it), so the page has something to be about. Then the Daily
+  Goal Reminder, the goal-setup nudge (`goal_setup.kickoff_prompt`) and the
+  `[Milestones confirmed]` turn (`goal_setup.milestones_prompt`), each built off
+  the loop, end with `goal_reminder.DASHBOARD_BUILD_LINE`: write your own HTML page
+  (`view.html`) with the dashboard skill, `dashboard_save` it and
+  `dashboard_apply` it, showing the goal, milestones with readings, what the
+  mate works on and what waits on the user; every value read from a
+  crew-log fold where one carries it, a fact no fold carries recorded as a new
+  crew-log event type, a hand-written field only for prose the mate alone
+  knows; the look taken from the project and the goal unless the user asked
+  for a style, which wins and is kept on rebuilds -- with no style asked,
+  modern, polished and good-looking, with an entrance and value-change motion,
+  nothing looping and none under `prefers-reduced-motion`; colour only from the
+  variables the tab sets (`--bg`, `--card`, `--text`, `--muted`, `--border`,
+  `--accent`, `--ok`, `--warn`, `--danger` and their pairs), named in the line; `search_docs` before guessing; and, once `dashboard_apply` has put it
+  live, one short chat message telling the user a Dashboard page is ready on the
+  Dashboard tab (no preview, no card) -- the one message a gateway wake posts about
+  the page. There is no default page: the line stops on the first wake after the
+  mate's own `dashboard_apply` (the package is then on screen), so there is no
+  second message. The
+  `[DASHBOARD]` block for a tab still on the suggestions page
+  (`dashboard_agentic.SUGGESTIONS_LINE`) says the same: a `dashboard_write`
+  lands on a page nobody sees, so write the page and save and apply it; the
+  member protocol's page item names the three parts `dashboard_save` takes as
+  fields, `view.html` and theme.
 - the **`crewmate.check_ins` card** (`set_check_ins`): turns the Daily Goal
   Reminder, Weekly report, Monthly review and Heartbeat on or off and sets
   `weekday`, `month_day`, `time` and the heartbeat's `interval` (its rows read

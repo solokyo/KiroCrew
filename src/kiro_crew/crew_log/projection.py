@@ -340,6 +340,7 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
         SERVERS_PER_TOOL_LIMIT,
         TIMELINE_LIMIT,
         TIMELINE_TYPES,
+        TIMELINE_DETAIL_KEYS,
         TOOL_NAME_LIMIT,
         _approvals_render,
         _approvals_start,
@@ -411,6 +412,7 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
         SUBAGENT_TYPES,
         _subagent_credits,
         _subagents_render,
+        SUBAGENT_ROW_KEYS,
         _subagents_start,
         _subagents_step,
     )

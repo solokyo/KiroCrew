@@ -26,7 +26,8 @@ dashboard_save -> dashboard_apply -> live, as a new version
 ```
 
 1. **Save.** `dashboard_save` takes the package's `model`, `view` and `theme`.
-   `view.html` carries your markup, your CSS and your script. `model` names every
+   `view.html` carries your markup, your CSS and your script, and it is the only
+   view a crewmate page has: a `view` of `blocks` is refused. `model` names every
    field you bind, and it is also the list the controller pushes, so a binding
    the model does not declare is refused at the save and told to you by name.
    The gateway fills `kind` and `bound_to` from who you are, so the package is
@@ -106,9 +107,7 @@ Three things not to do:
 ## 2. The design is yours; the honesty is not optional
 
 Choose the information architecture and the visual form the work needs, and
-change it when the work changes. A timeline, a dependency map, an experiment
-comparison, a release board, a deliverable gallery: examples, not required
-panels and not a template.
+change it when the work changes. No panel is required and no form is a template.
 
 What is fixed is what the page is allowed to claim:
 
@@ -128,28 +127,175 @@ What is fixed is what the page is allowed to claim:
   authority it does not have.
 - **Say which claims are yours.** A value you asserted and a value the log
   recorded are different kinds of claim. The frame marks yours; do not blur it.
+- **Your words agree with the folded numbers.** A headline or summary you write is a
+  claim about the same work the folds count, so it may never contradict them.
+  Derive it from the folded values in the page's script, so it changes when they
+  do; a hand-written one is rewritten the moment the numbers move. A line saying
+  nothing runs beside a count of two running is the page contradicting itself.
+- **Plain words, never internals.** Show what a value means to the person, not
+  how the log spells it: translate an event type, a state or a phase into
+  everyday words before it reaches the screen, and never show an internal id,
+  slot or session key -- in a row, a label or your own headline. The ledger's
+  `phase` and every row's `state` are log words too: the page's script maps
+  each value it shows to plain words, so no hyphenated value reaches the screen.
+  A value the map does not know -- a timeline `type` such as `session/opened`
+  included -- still gets plain words, a general phrase, never the raw value.
 
-## 3. The manager view: five questions on one screen
+### A page that updates itself
 
-A manager opens this page to know where the work stands. They do not care how
-the system works.
+Every field on the page reads a crew-log fold, so the page moves the moment an
+event lands and stays true when you are not writing to it. With no other ask,
+the page is about the work live right now -- what the user cares about this
+minute -- and these folds carry it:
 
-| # | Question | Where the answer comes from |
-|---|---|---|
-| 1 | Is it done? | a count out of a total, from the ledger fold |
-| 2 | What did it cost? | the usage fold |
-| 3 | What is left? | open items, from the ledger fold |
-| 4 | What is stuck? | blocked items and never-ran lanes |
-| 5 | What needs me? | anything waiting on a person, FIRST and in a warm colour |
+| what the page shows | the fold |
+|---|---|
+| what each of your work items is doing, its state and what it produced | `work`, `workstreams` |
+| helpers you dispatched in this session, and tool calls | `subagents`, `tools` |
+| what just landed, and what stopped | `timeline` |
+| what waits on the user: open questions and cards waiting on a button | `waiting`, `approvals` |
+| spend | `usage` |
 
-Hard limits, and they are limits rather than advice:
+A list or a map a script draws has rows, and `dashboard_types` names each row's
+keys (`row_keys`) and the one that names the row (`names_the_row`): a
+`timeline.moments` row is named by its `type`, the crew-log entry type, and a
+`subagents.by_id` row by its `task`, with `outcome` empty while it runs. Read
+those keys; a key you guess draws nothing.
 
-- One screen at 1280x800 with no scroll.
-- Needs-you first whenever anything waits on a person; with nothing waiting,
-  say "Nothing right now" rather than hiding the block.
-- A headline of one line, at most ten words.
-- No sentences inside a block. Numbers over words.
-- Detail on demand, folded in `details`, not spread across the screen.
+Work you hand out shows up where it is recorded: items in the work ledger are in
+`work` and `workstreams`, and a helper dispatched in this session is in
+`subagents`. Read `dashboard_types` for which of these hold anything for you, and
+draw what is running from those; do not assume one way of handing work out.
+
+Your goal and milestones are not default content: the user already sees them on
+your Profile tab, and a page that repeats them is a second copy of that tab. The
+`goal` fold (each milestone's target, latest reading, met or open) is there for a
+page the user asks to show them on.
+
+When the page needs a fact no fold carries, the fact belongs in the crew log as
+an event type of its own, recorded where it changes (by the gateway, or by you
+through the tool that records it), rather than a value you keep typing.
+A hand-written field (`{"agentic": true}`) is for prose only you know, such as
+your own verdict. The `dashboard_save` reply lists every field with its type and
+source and names the hand-written ones under `manual_fields`, so you can see
+which cells go stale the moment you stop writing them.
+
+Two checks the gateway makes on every save, because the page run is skipped on
+a machine with no browser (the reply's `verification.note` then says nothing
+was checked): `shape_warnings` names each list, record or time you bound to a
+`data-dashboard-field` cell, which shows it raw (`[]`, an ISO string), so draw
+it in your script (`dashboard_types` and `dashboard_fields` carry `rendering`
+for each type); `theme_warnings` says your fixed colours cover one colour
+scheme only, so the page is unreadable in the other, and names a surface you
+painted under text that keeps the tab's colours.
+
+### A look that belongs to the work
+
+A style the user asks for, in chat or on a card, wins over everything below and
+stays on every later rebuild. A borrowed look -- a metaphor taken from
+something outside the work -- needs the user's own taste to get right, so add
+one only when the user asks for a style. With none asked, the page has none: its
+look comes from the information itself, drawn well.
+
+**Draw each value as the kind of information it is.** Read what your work
+actually holds and give each kind the element it calls for:
+
+- **A value that changes over time** is a chart of that change, and the chart
+  moves when the value moves.
+- **Something moving toward done** is drawn as its progress toward done, when
+  a fold measures it (items done of a total, a reading toward a target). A
+  state is not a measure: a running worker with no count behind it is drawn as
+  running, not as a bar part-way full.
+- **Parallel workstreams** are their progress side by side, so the reader
+  compares them at a glance.
+- **Something waiting on the user** stands out from everything else on the
+  page, and is never hidden.
+- **Recent events** are a feed that moves: a new one arrives at the top and the
+  older ones make room.
+- **A count is a count**: a number, set large enough to read at a glance.
+
+Only the kinds your work has get an element: a page about one long task does
+not grow an empty feed. Rows of detail are welcome below the main elements, for
+the reader who wants them.
+
+**Polished and alive.**
+
+- **Typography and spacing carry the order.** What matters most is first and
+  largest; the rest steps down in size and weight, with room around each part.
+- **Motion where the data changes.** A value animates to its new value, a chart
+  draws in, a progress fills, a new item arrives rather than appears (the
+  `living-ui` skill says how a change should feel). Motion that carries no
+  change stays cheap, does no layout work and pauses while the tab is hidden.
+  Under `prefers-reduced-motion` the motion is off and every change is instant.
+- **What is written agrees with what is drawn.** A number or label beside a
+  chart, a progress or a feed reads the same fold value and says which part it
+  counts: ten workers drawn do not sit beside a bare zero that means "none
+  running".
+- **Nothing covers anything.** A banner, badge or callout takes its own space,
+  never the space of a value the reader needs to see.
+- **Every row fits the width.** Long text wraps or ends in an ellipsis inside
+  its row; nothing runs off the side.
+
+An idea you may use or ignore, for depth and craft: build the page in layers,
+the way a house goes up -- for example a background layer, frames around the
+data, then the data placed into them. What those layers look like is yours to
+choose.
+
+Colour only with the variables the Dashboard tab sets for the scheme
+in force (and colours derived from them), so light and dark both read:
+
+| variable | use |
+|---|---|
+| `--bg`, `--bg-elevated` | page and raised surfaces |
+| `--card`, `--card-fg` | a card and the text on it |
+| `--text`, `--text-strong`, `--muted` | body, emphasis, secondary text |
+| `--border` | borders and dividers |
+| `--accent`, `--accent-subtle` | the accent and its tint |
+| `--ok`, `--warn`, `--danger` | states |
+
+A `var()` of any other name -- `var(--my-fg, #e8e8e8)` -- is not set by the tab,
+so it draws its fixed fallback in both schemes: pale text on the light tab. The
+save reply's `theme_warnings` names any such variable.
+
+A surface you paint yourself owns the text on it. When part of the page gets its
+own background -- a fixed colour, a gradient, or a theme token that sets one of
+the tab's variables to a fixed value -- the tab's text colours still change with
+the scheme, so text laid on that surface disappears into it in one of them.
+Either leave the surface on the tab's variables as the tab sets them, or set the
+text on it too: a colour that reads on that surface, or surface and text set
+together for each scheme. `theme_warnings` names a surface left this way.
+
+**Pair type, do not name it.** The frame gives three role variables,
+`var(--font-sans)`, `var(--font-serif)` and `var(--font-mono)`, each built
+from generic families so every system draws its own face. Use at most two
+families on a page, each with a clear job: one that reads, for headings and
+body, and one for numbers, code or ids. Monospace is for code, ids and
+aligned figures, never for body text or headings. Build hierarchy with
+size, weight and colour, not with another family; `font-variant-numeric:
+tabular-nums` aligns figures without switching to monospace. Text in any
+one script stays in one style; the generic families already pick each
+script's system face. A style the user names wins.
+
+Search the Kiro Crew documentation with `search_docs` (and `find_ui` for where
+a control is) before guessing how a fold, a field or a setting works.
+
+## 3. What a glance should answer
+
+A reader opens this page to know where the work stands, without asking how the
+system works. Whatever form you give it, the page should let them answer at a
+glance:
+
+| Question | Where the answer comes from |
+|---|---|
+| Where does the work stand? | your work items and workstreams (`work`, `workstreams`) |
+| What is running right now? | ledger work items (`work`, `workstreams`), helpers in this session (`subagents`) |
+| What is stuck? | blocked items, and helpers that failed or never ran |
+| What needs me? | anything waiting on the person (`waiting`, `approvals`) |
+
+Two things hold whatever the design:
+
+- Anything that waits on the person is never hidden.
+- When nothing waits, the page says so, rather than leaving the reader to wonder.
 
 Write the vocabulary down before you draw: what one item is, what done means,
 what waiting means. A page whose words drift from the work reads as wrong even
@@ -169,7 +315,7 @@ Three ways a value reaches it, and you choose per element:
    gateway folded), `seq` (the fold watermark) and `stale`.
 3. `window.kirocrew.subscribe(name, cb)`: `cb(value, name)` runs once when you
    subscribe and again on every push that carries that field, and it returns a
-   disposer. This is the path for anything you DRAW -- a tree, a chart, a scene.
+   disposer. This is the path for anything you DRAW -- a tree, a chart, a progress.
 
 The host fills (1) itself from the same object it hands to (2) and (3), so a
 page cannot show one number in a cell and a different one in its chart.
@@ -246,7 +392,7 @@ second design.
 - When a bound value moves or a new item lands, the `living-ui` skill says
   how that motion should feel. Never run the idle tour it describes for
   explainers: this page stays open all day.
-- Motion off under `prefers-reduced-motion`.
+- Under `prefers-reduced-motion`, the ambient layer off and every change instant.
 - Colour is never the only carrier of a state: pair it with a word.
 - Every link gets `target="_blank" rel="noopener noreferrer"`.
 - Plain-language names. A session or run id belongs in folded detail, never as a
@@ -260,9 +406,10 @@ what it binds, and save it with `dashboard_save`; nothing loads a gallery page b
 id, so editing your copy cannot reach anybody else's.
 
 `GALLERY.md`, also beside this file, lists those packages and the pages that
-shipped together, with the reader question each one answers. Copy one and adapt
-it, mix two, or write something none of them describes. They are source to
-read, not pages to pick.
+shipped together, with the reader question each one answers. They show how a
+page declares and binds its fields, not how a page should look: their look is
+plain on purpose, and yours comes from section 2. Read one for its wiring, then
+write your own page.
 
 One rule a copied package will teach you the hard way: the package's `model` is
 the list of fields the controller pushes, so a name only your markup knows is a

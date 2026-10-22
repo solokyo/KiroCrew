@@ -838,9 +838,11 @@ def _validate_view(raw: Any, declared_fields: Mapping[str, Any]) -> dict[str, An
 def _validate_theme(raw: Any) -> dict[str, Any]:
     theme = _an_object(raw, "theme")
     _check_keys(theme, "theme", ("tokens", "css"))
+    # A missing ``tokens`` is the empty set: an MCP client can drop an empty object
+    # from a tool call, so ``{"tokens": {}}`` may arrive as ``{}``.
     raw_tokens = theme.get("tokens")
     if raw_tokens is None:
-        raise _refuse("theme.tokens", "is required (an empty object is fine)")
+        raw_tokens = {}
     tokens_obj = _an_object(raw_tokens, "theme.tokens")
     if len(tokens_obj) > MAX_THEME_TOKENS:
         raise _refuse(
@@ -888,6 +890,23 @@ def _validate_theme(raw: Any) -> dict[str, Any]:
     return out
 
 
+def theme_stylesheet(raw: Any) -> str:
+    """The package's ``theme`` as one stylesheet: its tokens on ``:root``, then its css.
+
+    Checked by the same validator the write gate runs, so what reaches a ``<style>``
+    element is only what the gate accepts: a token value holds no ``;``, ``{``, ``}``,
+    ``<`` or ``>``, and the css holds no ``</style``, so neither can close the element
+    or open a rule of its own. Raises :class:`~kiro_crew.artifact_store.model.ArtifactValidationError` for a theme the
+    gate would refuse, such as one written under an older validator.
+    """
+    theme = _validate_theme(raw)
+    tokens = "".join(f"{name}:{value};" for name, value in theme["tokens"].items())
+    parts = [f":root{{{tokens}}}"] if tokens else []
+    if theme.get("css"):
+        parts.append(theme["css"])
+    return "\n".join(parts)
+
+
 def validate_package(raw: Any) -> dict[str, Any]:
     """Return the CANONICAL form of a dashboard package, or raise saying why not.
 
@@ -908,11 +927,12 @@ def validate_package(raw: Any) -> dict[str, Any]:
         raise _refuse("model", "is required")
     if "view" not in package:
         raise _refuse("view", "is required")
-    if "theme" not in package:
-        raise _refuse("theme", "is required (an empty 'tokens' object is fine)")
     model = _validate_model(package["model"])
     view = _validate_view(package["view"], model["types"])
-    theme = _validate_theme(package["theme"])
+    # A missing theme is the empty one, stored canonically as ``{"tokens": {}}``: an
+    # MCP client can drop ``{"tokens": {}}`` before it reaches the gateway.
+    raw_theme = package.get("theme")
+    theme = _validate_theme({"tokens": {}} if raw_theme is None else raw_theme)
     return {
         "kind": DASHBOARD_KIND,
         "bound_to": bound_to,
@@ -1062,7 +1082,34 @@ def canonical_package_content(content: str) -> str:
     and the version history then read a package the author's whitespace cannot
     perturb.
     """
-    return dump_package(parse_package(content))
+    package = parse_package(content)
+    _require_html_for_a_crewmate(package)
+    return dump_package(package)
+
+
+#: The scope prefix of a crewmate's own page in ``bound_to``.
+_CREWMATE_BINDING_PREFIX = "crewmate:"
+
+
+def _require_html_for_a_crewmate(package: Mapping[str, Any]) -> None:
+    """Refuse a crewmate page whose view is a block layout. Write gate only.
+
+    A crewmate's Dashboard tab frames the package's own ``view.html`` and nothing
+    else (``member_dashboard_fields.render_package_page``), so a block layout would
+    store, apply and then draw as an empty page. Checked on writes and applies,
+    not on reads: a block package already stored still parses, and is told this
+    the next time it is applied.
+    """
+    bound = str(package.get("bound_to") or "")
+    view = package.get("view") or {}
+    if bound.startswith(_CREWMATE_BINDING_PREFIX) and "blocks" in view:
+        raise _refuse(
+            "view",
+            "a crewmate's page is drawn from view.html only, so a view of blocks "
+            'cannot be shown: send view as {"html": "..."} with one '
+            'data-dashboard-field="<name>" element per field the model declares, '
+            "which the host fills as text",
+        )
 
 
 # --------------------------------------------------------------------------- #
