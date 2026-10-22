@@ -762,51 +762,51 @@ _DASHBOARD_BOOT = tuple("""
     register_status_delta_sink _precompute_telemetry current_context
     _register_mcp_routes _deferred _deferred setup_spawn_resume_routes
     _deferred_work_ledger _deferred_work_ledger _deferred_work_ledger
-    _deferred_work_ledger _deferred_work_ledger _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred
+    _deferred_work_ledger _deferred_work_ledger _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred
-    register_all subprocess_executor subprocess_executor subprocess_executor
-    subprocess_executor subprocess_executor subprocess_executor _register_deploy_routes
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred register_all
+    subprocess_executor subprocess_executor subprocess_executor subprocess_executor
+    subprocess_executor subprocess_executor _register_deploy_routes
     setup_knowledge_routes setup_weixin_routes setup_feedback_routes
     setup_secrets_routes setup_whatsapp_routes setup_link_meta_routes bind_address_for
     _reserve_dashboard_port subprocess_executor init_hooks_system safe_context_call
     current_context _register_dist_static_routes _dist_file_handler _dist_file_handler
     _dist_file_handler _dist_file_handler _dist_file_handler discover_app_window_entries
-    register_app_window_paths _install_asset_cache_control_finalizer
-    tailnet_effective_allowed_logins tailnet_identity_unknown degraded_config_files
-    build_allowed_origins _make_host_validation_middleware _make_csrf_middleware
-    _make_deny_audit_middleware resolve_dashboard_host build_host_canonical_redirect
-    warm_auth_singletons warm_sel_singleton make_route_latency_middleware
-    _mixed_internal_api_paths safe_context_call current_context token_auth_middleware
+    _window_entry_handler _window_entry_handler _window_entry_handler
+    _window_entry_handler _window_entry_handler _window_entry_handler
+    _window_entry_handler _window_entry_handler register_app_window_paths
+    _install_asset_cache_control_finalizer tailnet_effective_allowed_logins
+    tailnet_identity_unknown degraded_config_files build_allowed_origins
+    _make_host_validation_middleware _make_csrf_middleware _make_deny_audit_middleware
+    resolve_dashboard_host build_host_canonical_redirect warm_auth_singletons
+    warm_sel_singleton make_route_latency_middleware _mixed_internal_api_paths
+    safe_context_call current_context token_auth_middleware
     _register_prevent_sleep_shutdown _register_listener_guard_shutdown
     _register_stt_hooks _register_own_host_warm _register_config_watch
     _register_instances_hooks _register_browser_install_cleanup
     _register_browser_view_cleanup _register_connections_warm_lifecycle
-    _register_workflow_lifecycle _register_crewmate_prune_gate _register_change_card_hook
-    _register_unix_socket_cleanup build_hardened_runner on_gateway_startup
-    init_hook_reconciler async_safe_context_call current_context register_pre_exec_stop
-    _arm_listener_guard
-    _kick_crewmate_prune _kick_pinned_order_load subprocess_executor _start_unix_site _resolved_bound_port
+    _register_workflow_lifecycle _register_crewmate_prune_gate
+    _register_change_card_hook _register_unix_socket_cleanup build_hardened_runner
+    on_gateway_startup init_hook_reconciler async_safe_context_call current_context
+    register_pre_exec_stop _arm_listener_guard _kick_crewmate_prune
+    _kick_pinned_order_load subprocess_executor _start_unix_site _resolved_bound_port
     _start_secondary_loopback_site subprocess_executor _note_listener_sidecar
     _reconcile_listener_publication _kick_workflow_initialization
     _kick_connections_warm_scavenge _kick_session_search_index _kick_config_watch
     _kick_local_decision_model _kick_knowledge_orphan_reclaim _kick_owner_only_sweep
-    _kick_display_verdicts _kick_otel_crew_log_subscriber
-    load_loop_stall_exit_after
+    _kick_display_verdicts _kick_otel_crew_log_subscriber load_loop_stall_exit_after
     _arm_prevent_sleep_poll register_pre_exec_stop safety_override safety_override
-    safety_override
-    await_crewmate_prune_settled current_context record_boot_to_ready
+    safety_override await_crewmate_prune_settled current_context record_boot_to_ready
     _dispatch_healthy_boot_marker
-    """.split())
+""".split())
 _DASHBOARD_TEARDOWN = tuple("""
     current_context unregister_status_delta_sink stop_hook_reconciler
     on_gateway_shutdown async_safe_context_call current_context _release_sleep_block
@@ -818,13 +818,12 @@ _DASHBOARD_ELSEWHERE = tuple("""
     T:_write_instance_credentials T:_write_secret_file T:_write_secret_file
     T:_write_secret_file T:apply_config_duration T:cleanup_migrated_builtin
     T:cleanup_migrated_builtin T:cleanup_migrated_builtin T:cleanup_migrated_builtin
-    T:migrate_channel_transcripts T:newest_dump_with_stacks T:open_dump_file
-    T:prune_synced_crewmates T:record_healthy_boot T:refresh_config_meta_stamp
-    T:refresh_materialized_agents
-    T:register_builtin_apps T:rotate_dumps T:start_deferred_app_backends
-    T:start_enabled_app_backends T:sweep_stale_dumps T:take_dropped_grant
-    T:tighten_data_home T:warm_own_host_names
-    """.split())
+    T:migrate_channel_transcripts T:migrate_existing_crewmates T:newest_dump_with_stacks
+    T:open_dump_file T:prune_synced_crewmates T:record_healthy_boot
+    T:refresh_config_meta_stamp T:refresh_materialized_agents T:register_builtin_apps
+    T:rotate_dumps T:start_deferred_app_backends T:start_enabled_app_backends
+    T:sweep_stale_dumps T:take_dropped_grant T:tighten_data_home T:warm_own_host_names
+""".split())
 _API_BOOT = tuple("""
     set_global_hook_store register_skill_read_observer wire_session_subagent_probe
     _precompute_telemetry current_context tailnet_effective_allowed_logins
@@ -834,32 +833,31 @@ _API_BOOT = tuple("""
     _mixed_internal_api_paths safe_context_call current_context token_auth_middleware
     _register_mcp_routes _deferred _deferred setup_spawn_resume_routes
     _deferred_work_ledger _deferred_work_ledger _deferred_work_ledger
-    _deferred_work_ledger _deferred_work_ledger _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred
+    _deferred_work_ledger _deferred_work_ledger _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
     _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
-    _deferred
-    _register_deploy_routes _register_stt_hooks _register_own_host_warm
-    _register_config_watch _register_prevent_sleep_shutdown
-    _register_listener_guard_shutdown _register_browser_install_cleanup
-    _register_connections_warm_lifecycle _register_workflow_lifecycle
-    _register_unix_socket_cleanup build_hardened_runner bind_address_for _start_site
-    _arm_listener_guard _kick_pinned_order_load _export_bound_port _resolved_bound_port
-    _start_unix_site _resolved_bound_port _resolved_bound_host _start_secondary_loopback_site
-    subprocess_executor _resolved_bound_host _resolved_bound_host _note_listener_sidecar
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _deferred _deferred
+    _deferred _deferred _deferred _deferred _deferred _deferred _register_deploy_routes
+    _register_stt_hooks _register_own_host_warm _register_config_watch
+    _register_prevent_sleep_shutdown _register_listener_guard_shutdown
+    _register_browser_install_cleanup _register_connections_warm_lifecycle
+    _register_workflow_lifecycle _register_unix_socket_cleanup build_hardened_runner
+    bind_address_for _start_site _arm_listener_guard _kick_pinned_order_load
+    _export_bound_port _resolved_bound_port _start_unix_site _resolved_bound_port
+    _resolved_bound_host _start_secondary_loopback_site subprocess_executor
+    _resolved_bound_host _resolved_bound_host _note_listener_sidecar
     _resolved_bound_host _reconcile_listener_publication _kick_workflow_initialization
     _kick_connections_warm_scavenge _kick_session_search_index _kick_config_watch
     _kick_local_decision_model _kick_owner_only_sweep _kick_display_verdicts
-    _arm_prevent_sleep_poll
-    register_pre_exec_stop record_boot_to_ready _dispatch_healthy_boot_marker
-    """.split())
+    _arm_prevent_sleep_poll register_pre_exec_stop record_boot_to_ready
+    _dispatch_healthy_boot_marker
+""".split())
 _API_TEARDOWN: tuple[str, ...] = ("_release_sleep_block",)
 _API_ELSEWHERE = tuple("""
     S:_initialize_workflow_service S:_stt_idle_sweep S:_stt_startup_prewarm
@@ -1060,8 +1058,8 @@ def _routes(app: web.Application) -> list[tuple[str, str, str]]:
 #: SHA-256 of the MCP route table's ``"<method> <path> <handler>"`` rows in
 #: registration order, and their count. The table is shared by both entrypoints, so a
 #: route added to it on purpose updates these with it.
-_MCP_TABLE_ROWS = 301
-_MCP_TABLE_DIGEST = "5e2d71102ca1e0154a5787dd4312aac04893732f65c2051ce612a2eb9bce17de"
+_MCP_TABLE_ROWS = 302
+_MCP_TABLE_DIGEST = "c1374a9e43f211bd9821ae6edf711b3a72e36e6fe76401aa81ac6f5fbe4a0e8f"
 
 
 def test_the_mcp_route_table_keeps_its_rows_and_order() -> None:
