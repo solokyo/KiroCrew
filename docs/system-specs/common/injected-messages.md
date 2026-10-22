@@ -703,6 +703,23 @@ next turn into the same slot:
   awaiting terminal-completion evidence is deliberately **included**: its accepted-turn
   correlation needs a timer to expire, and stranding it would refuse every replacement
   watch on the slot forever.
+- **An active, unheld prompt loop more than two intervals past its deadline is named
+  once.** The two-pass rescue only sees a loop with no live timer, so two shapes
+  escaped it with nothing in the journal: every fire refused (a live backoff timer
+  that re-arms forever) and a fire that never returns (the loop parked in the fire
+  window). Each pass checks `next_due_ts` against the loop's own interval; a loop
+  past it by more than two intervals, not held (approval or person-wait), not
+  structured and not quiesced, gets ONE WARNING per episode naming the shape caught
+  -- `refused_fires`, `wedged_fire`, `live_timer` or `no_timer` -- with the overdue
+  time, the cycle and the refused-fire streak. A live-timer shape is re-armed toward
+  its deadline once per episode, not every pass, so a refusing slot is not fired into
+  every minute. A fire counts as wedged by how long its fire window has been open,
+  not by the deadline, because a channel loop runs its whole turn inside that window:
+  only a window open longer than the highest configurable turn ceiling
+  (`CHAT_TURN_TIMEOUT_MAX`, one day) is named, and it is only named, since the fire
+  window is never cancelled. A
+  no-timer shape is left to the two-pass rescue. The episode ends at the first pass
+  that finds the loop on schedule, and a later stall warns again.
 - **Delivered fires and reconciler rescues are both logged at INFO.** Fires were
   otherwise unlogged, so a loop that had died and one with nothing to report were
   byte-identical in the journal. One line per delivered turn — each of which already
