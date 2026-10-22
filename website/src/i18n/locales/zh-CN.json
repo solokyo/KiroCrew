@@ -10130,6 +10130,10 @@
       "stream_error_vocabulary_rejected": "Amazon Transcribe 无法使用你的自定义词汇表。在语音转文字设置中选择其他词汇表或“无”，然后重试。",
       "stream_error_sdk_outdated": "混合语言需要 gateway 中的 amazon-transcribe 为 0.6.3 或更高版本。请用 gateway 日志中的命令升级，或在语音转文字设置中清空混合语言，然后重试。"
     },
+    "speechProviders": {
+      "unavailable_no_reason": "此提供方目前无法运行。",
+      "sign_in_hint": "请使用你的 {{account}} 登录以使用它。"
+    },
     "templateSource": {
       "built_in": "内置",
       "package": "包",

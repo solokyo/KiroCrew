@@ -31,6 +31,8 @@ import { parseErrorCode, parseErrorField, reportForError, sendErrorToChat } from
 import { PttTestStrip } from '../../components/PttTestStrip'
 import AwsConsentGate from '../../components/AwsConsentGate'
 import SttRetentionNote from './SttRetentionNote'
+import SpeechProviderNotice from '../../components/SpeechProviderNotice'
+import { parseSpeechProviders, speechProviderNotice, speechProviderOptions } from '../../lib/speechProviders'
 import {
   BARE_CODE_LABEL_KEY,
   BARE_CODE_LABEL_KEY_OTHER,
@@ -90,11 +92,8 @@ interface SttConfig {
   language_code?: string
   /** Whether a fast model tidies the finished transcript. Off unless turned on. */
   polish?: boolean
-  /**
-   * One row per selectable provider. Older gateways served bare names, so both
-   * shapes are read; only `name` is used here.
-   */
-  providers?: (string | { name: string })[]
+  /** Served provider entries (see lib/speechProviders). An older gateway sends bare names. */
+  providers?: unknown[]
   streaming_providers?: string[]
   language_codes?: string[]
   prereqs: string[]
@@ -1025,9 +1024,9 @@ export default function SttSettings({ cardIndex }: {
 
   const isTranscribe = stt.provider === PROVIDER_TRANSCRIBE
   const provider = stt.provider || PROVIDER_LOCAL
-  const providerOptions = stt.providers?.length
-    ? stt.providers.map(p => (typeof p === 'string' ? p : p.name))
-    : FALLBACK_PROVIDERS
+  const servedProviders = parseSpeechProviders(stt.providers)
+  const providerChoices = speechProviderOptions(servedProviders, FALLBACK_PROVIDERS, providerLabel)
+  const providerNotice = speechProviderNotice(servedProviders, provider)
   // Gate the streaming controls on the CAPABILITY, not on a provider name. The
   // backend owns the list (`stt_stream._STREAMING_PROVIDERS`) and serves it, so
   // adding a streaming provider cannot silently hide its own toggle — which is
@@ -1271,7 +1270,9 @@ export default function SttSettings({ cardIndex }: {
           </button>
         )}
 
-        <SettingsSelect label={i18nT('pages.settings.sttSettings.provider')} hint={i18nT('pages.settings.sttSettings.provider_desc')} value={provider} options={providerOptions} optionLabels={providerOptions.map(providerLabel)} onChange={handleProvider} disabled={saving} configKey="stt.provider" />
+        <SettingsSelect label={i18nT('pages.settings.sttSettings.provider')} hint={i18nT('pages.settings.sttSettings.provider_desc')} value={provider} options={providerChoices.options} optionLabels={providerChoices.labels} onChange={handleProvider} disabled={saving} configKey="stt.provider" />
+        {/* No hand-off while the AWS profile/region drafts below are unsaved: see `awsDraftsSaved`. */}
+        {providerNotice && <SpeechProviderNotice entry={providerNotice} testId="stt-provider-notice" askAgent={awsDraftsSaved} />}
 
         <SttRetentionNote provider={provider} />
 

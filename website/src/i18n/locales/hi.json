@@ -10275,6 +10275,10 @@
       "stream_error_vocabulary_rejected": "Amazon Transcribe तुम्हारी कस्टम शब्दावली का उपयोग नहीं कर सका। वाक्-से-पाठ सेटिंग में कोई दूसरी शब्दावली या \"कोई नहीं\" चुनो, फिर दोबारा कोशिश करो।",
       "stream_error_sdk_outdated": "मिश्रित भाषाओं के लिए gateway में amazon-transcribe 0.6.3 या नया चाहिए। gateway लॉग में दिए कमांड से इसे अपडेट करो, या वाक्-से-पाठ सेटिंग में मिश्रित भाषाएँ खाली करो, फिर दोबारा कोशिश करो।"
     },
+    "speechProviders": {
+      "unavailable_no_reason": "यह प्रदाता अभी नहीं चल सकता।",
+      "sign_in_hint": "इसका उपयोग करने के लिए अपने {{account}} से साइन इन करें।"
+    },
     "templateSource": {
       "built_in": "बिल्ट-इन",
       "package": "पैकेज",

@@ -10420,6 +10420,10 @@
       "stream_error_vocabulary_rejected": "O Amazon Transcribe não conseguiu usar seu vocabulário personalizado. Escolha outro, ou Nenhum, nas configurações de voz para texto e tente novamente.",
       "stream_error_sdk_outdated": "Idiomas misturados precisam do amazon-transcribe 0.6.3 ou mais recente no gateway. Atualize-o com o comando do log do gateway, ou limpe Idiomas misturados nas configurações de voz para texto, e tente novamente."
     },
+    "speechProviders": {
+      "unavailable_no_reason": "Este provedor não pode ser executado agora.",
+      "sign_in_hint": "Entre com sua {{account}} para usá-lo."
+    },
     "templateSource": {
       "built_in": "Integrado",
       "package": "Pacote",
