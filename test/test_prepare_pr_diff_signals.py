@@ -322,26 +322,112 @@ def test_a_non_closing_line_stays_inside_the_fence(opener: str, inner: str) -> N
     assert ds.word_count(ds.what_changed_prose(body)) == 1
 
 
-def test_four_space_indent_is_not_a_fence_and_unclosed_fence_runs_to_the_end() -> None:
+def test_four_space_indent_is_not_a_fence_and_an_unclosed_fence_is_counted() -> None:
     # Four spaces is an indented code line, not a fence opener: the rows count.
     body = "## What changed\n\nShort.\n\n    ```\n| a | b |\n| c | d |\n    ```\n"
     assert ds.what_changed_table_rows(body) == 2
-    # An unclosed fence swallows the rest of the section, as CommonMark renders it.
+    # An unclosed fence is ambiguous to this scanner, so it fails closed: counted.
     body = "## What changed\n\nShort.\n\n~~~\n" + _FENCED_EXAMPLE + "\n## Tests\n\nt\n"
+    assert ds.what_changed_table_rows(body) == 20
+    # ``Short.``, the ``~~~`` opener and ``four words of code``; rows are not prose.
+    assert ds.word_count(ds.what_changed_prose(body)) == 1 + 1 + 4
+
+
+# A body far over the limit, each word behind a line this scanner reads as an
+# opener that never closes. GitHub renders all of it as prose.
+_PROSE_WORDS = "word " * 50 + "\n"
+
+
+@pytest.mark.parametrize(
+    "opener",
+    [
+        "<details>\n```\n",  # raw HTML: a fence line inside an HTML block is text
+        "<div>\n~~~\n",
+        "- ```\n  ",  # a list item whose fence never closes, words inside it
+        "1. ~~~\n   ",
+    ],
+    ids=["html-details", "html-div", "list-backtick", "list-tilde"],
+)
+def test_an_unclosed_fence_counts_as_prose_so_a_long_body_fails(capsys, opener: str) -> None:
+    body = "## What changed\n\nx/y.py.\n\n" + opener + _PROSE_WORDS + "\n## Tests\n\nt\n"
+    assert ds.word_count(ds.what_changed_prose(body)) > 50
+    rc = ds.check_body(body, "M\tsrc/kiro_crew/x/y.py\n", word_limit=40)
+    assert rc == 21
+    assert "TOO LONG" in capsys.readouterr().out
+
+
+def test_a_backtick_in_the_info_string_is_not_an_opener() -> None:
+    # ```a`b is inline code, not a fence. Read as an opener, the later ``` would
+    # close it and hide the rows between.
+    body = "## What changed\n\n```a`b\n| r1 |\n| r2 |\n```\n"
+    assert ds.what_changed_table_rows(body) == 2
+
+
+def test_a_deep_list_closer_must_reach_the_item_content_indent() -> None:
+    # A four-wide item: its closer sits at four spaces (up to seven); three is
+    # less than the content indent, so that line ends the item, unclosed.
+    closed = "## What changed\n\n1.  ```\n    | a |\n    ```\n"
+    assert ds.what_changed_table_rows(closed) == 0
+    closed = "## What changed\n\n1.  ```\n    | a |\n       ```\n"
+    assert ds.what_changed_table_rows(closed) == 0
+    short = "## What changed\n\n1.  ```\n    | a |\n   ```\n| b |\n"
+    assert ds.what_changed_table_rows(short) == 2
+
+
+def test_a_long_list_marker_line_is_scanned_in_linear_time() -> None:
+    # Each ``-   `` unit is a marker plus spaces the next unit's indent can also
+    # take; with backtracking prefix groups 16 units took ~10 s with no fence.
+    from conftest import assert_rejected_without_backtracking
+
+    def reject(text: str) -> None:
+        assert ds._FENCE_OPEN.match(text) is None
+
+    assert_rejected_without_backtracking(reject, lambda n: "-   " * n + "x")
+
+
+@pytest.mark.parametrize("fence", ["~~~", "```"])
+def test_a_list_item_fence_closes_at_its_own_indent_and_keeps_the_prose_between(
+    fence: str,
+) -> None:
+    # Each item's indented closer ends its own block. Read as a top-level opener
+    # instead, the first closer would hide the paragraph up to the second one.
+    item = "- " + fence + "\n  | in | code |\n  " + fence + "\n"
+    prose = "word " * 30 + "\n"
+    body = "## What changed\n\n" + item + "\n" + prose + "\n" + item + "\n## Tests\n\nt\n"
+    assert ds.what_changed_table_rows(body) == 0
+    assert ds.word_count(ds.what_changed_prose(body)) == 30
+
+
+def test_list_fences_nest_and_end_with_their_item() -> None:
+    # An ordered and a nested item; the closer sits at the item's content indent.
+    body = "## What changed\n\n1. ```py\n   | a |\n   ```\n- - ~~~\n    | b |\n    ~~~\n\nOne.\n"
     assert ds.what_changed_table_rows(body) == 0
     assert ds.word_count(ds.what_changed_prose(body)) == 1
+    # An unclosed fence in an item ends at the first line indented less than it,
+    # and is counted: the opener and its lines stay, then scanning resumes.
+    body = "## What changed\n\n- ~~~\n  | a |\n\nTwo words.\n| row |\n~~~\n| hid |\n~~~\n"
+    assert ds.what_changed_table_rows(body) == 2  # ``| a |`` and ``| row |``, not ``| hid |``
+    assert ds.word_count(ds.what_changed_prose(body)) == 2 + 2  # ``- ~~~`` and the two words
+
+
+def test_a_blockquote_fence_is_still_counted() -> None:
+    # Residual, not changed here: ``> ~~~`` is not read as a fence, so its words count.
+    body = "## What changed\n\nShort.\n\n> ~~~\n> | a |\n> ~~~\n"
+    assert ds.what_changed_table_rows(body) == 0  # ``> |`` does not start with ``|``
+    assert ds.word_count(ds.what_changed_prose(body)) == 9  # every token, ``>`` included
 
 
 def test_a_heading_inside_a_fence_still_ends_the_section() -> None:
     # Residual, not changed here: the section is cut at the first ``## `` line
     # before fences are stripped, so a heading inside a fence ends it.
-    # The prose and rows after the fence are then not counted (today's answer).
+    # The prose and rows after the fence are then not counted (today's answer);
+    # the opener, left unclosed by the cut, counts as one token.
     body = (
         "## What changed\n\nShort.\n\n```\n## not a heading\n```\n\nLost prose here.\n"
         + "| r |\n" * 9
     )
     assert ds.what_changed_table_rows(body) == 0
-    assert ds.word_count(ds.what_changed_prose(body)) == 1
+    assert ds.word_count(ds.what_changed_prose(body)) == 2
 
 
 def test_check_body_nine_table_rows_is_twenty_one(capsys) -> None:

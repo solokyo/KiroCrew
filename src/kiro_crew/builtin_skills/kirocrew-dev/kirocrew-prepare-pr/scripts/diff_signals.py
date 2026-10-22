@@ -252,31 +252,57 @@ def unaccounted_areas(paths, body):
 
 
 # A CommonMark fence: up to three spaces of indent, then three or more backticks
-# or tildes. A backtick fence's info string may not hold a backtick.
-_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}(?=[^`]*$)|~{3,})")
+# or tildes. A backtick fence's info string may not hold a backtick. The fence
+# may follow list markers (``- ~~~``, ``1. ```py``); group 1 is that prefix.
+# The quantifiers are possessive: a marker's trailing spaces and the next
+# marker's indent share the space character, so a backtracking prefix tries
+# exponentially many splits of a long ``-   -   -`` line that holds no fence.
+_FENCE_OPEN = re.compile(
+    r"^((?: {0,3}+(?:[-+*]|\d{1,9}+[.)]) {1,4}+)*+) {0,3}+(`{3,}+(?=[^`]*$)|~{3,}+)"
+)
 
 
 def _strip_fences(text):
-    """``text`` with every fenced code block removed, fence lines included.
+    """``text`` with every closed fenced code block removed, fence lines included.
 
     A block closes on a line of the same character, at least as long as the
-    opener, indented up to three spaces and followed only by blanks. An
-    unclosed block runs to the end, as CommonMark renders it.
+    opener, followed only by blanks and indented like the opener's content: up
+    to three spaces past the list markers it sits behind. A block that never
+    meets such a line is left counted, opener included: it ends with its list
+    item, at the first non-blank line indented less than the item's content, or
+    at the end of the section. This scanner does not model HTML blocks or every
+    list rule, so an unclosed "fence" may be rendered prose, and stripping it
+    would let an over-limit body pass. A fence in a blockquote is left counted:
+    every line of it starts with ``>``, so none can be read as an opener here.
     """
     kept = []
+    held = []  # the open block's lines, opener first, until it closes
     close = None
+    width = 0
     for line in text.splitlines():
-        if close is None:
-            m = _FENCE_OPEN.match(line)
-            if m:
-                fence = m.group(1)
-                close = re.compile(
-                    r"^ {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}[ \t]*$"
-                )
+        if close is not None:
+            if line.strip() and len(line) - len(line.lstrip(" ")) < width:
+                kept.extend(held)  # the list item ended unclosed: count it
+                held = []
+                close = None
+            elif close.match(line):
+                held = []
+                close = None
+                continue
             else:
-                kept.append(line)
-        elif close.match(line):
-            close = None
+                held.append(line)
+                continue
+        m = _FENCE_OPEN.match(line)
+        if m:
+            width = len(m.group(1))
+            fence = m.group(2)
+            close = re.compile(
+                "^ {%d} {0,3}%s{%d,}[ \t]*$" % (width, re.escape(fence[0]), len(fence))
+            )
+            held = [line]
+        else:
+            kept.append(line)
+    kept.extend(held)  # never closed: count it
     return "\n".join(kept)
 
 
