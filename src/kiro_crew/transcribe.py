@@ -208,15 +208,20 @@ CODE_DISABLED = "stt_disabled"
 STT_PROVIDER_OFF = "off"
 
 
-def _is_registered_provider(provider: object) -> bool:
-    """Whether *provider* is an edition-registered STT name (``PlatformContext.speech``).
+def _registered_provider(provider: object) -> Any:
+    """The edition-registered STT provider named *provider* (``PlatformContext.speech``).
 
-    The loader accepts such a name, but no recogniser is dispatched for one yet,
-    so both dispatch points refuse it rather than fall through to ``local``.
+    ``None`` for every built-in name, so the built-in branches below keep running
+    exactly as before; a registered name is looked up only when it is not one.
     """
     from kiro_crew import speech_providers
 
-    return provider in speech_providers.registered_stt_names()
+    return speech_providers.stt_provider(provider)
+
+
+#: A registered provider's ``check()`` said it cannot run now. The dashboard
+#: shows the provider's own reason beside it.
+CODE_PROVIDER_UNAVAILABLE = "stt_provider_unavailable"
 
 
 #: ``stt.enabled`` is on but ``stt.provider`` is ``off``. Its own code, distinct
@@ -282,14 +287,19 @@ def availability_detail(stt_config=None) -> stt.Availability:  # type: ignore[no
         return _aws_availability()
     if provider == "apple":
         return _apple_availability()
-    if _is_registered_provider(provider):
-        # An edition-registered provider the loader accepted. Nothing dispatches
-        # to one yet, so it is not ready -- never the local recogniser under
-        # another name.
+    registered = _registered_provider(provider)
+    if registered is not None:
+        # An edition-registered provider: its own check() answers. BLOCKING, like
+        # every caller of this function already is (each runs it off the loop).
+        from kiro_crew import speech_providers
+
+        status = speech_providers.check_status_sync(registered, stt_config)
+        if status.available:
+            return stt.Availability(True)
         return stt.Availability(
             False,
-            CODE_PROVIDER_OFF,
-            f"the speech provider {provider!r} cannot run in this build; choose a provider",
+            CODE_PROVIDER_UNAVAILABLE,
+            status.reason or f"the speech provider {provider!r} cannot run now",
         )
     # ``local``: the loader admits only selectable providers, and ``off`` and a
     # registered name were answered above, so this is the resident recogniser.
@@ -424,17 +434,21 @@ async def transcribe_audio(audio_path: str, stt_config=None) -> str | None:  # t
         result = await _transcribe_aws(audio_path, stt_config)
     elif provider == "apple":
         result = await _transcribe_apple(audio_path, stt_config)
-    elif _is_registered_provider(provider):
-        # An edition-registered provider: nothing dispatches to one yet, so the
-        # clip is refused rather than sent to the local recogniser.
-        logger.warning(
-            "STT provider %r has no recogniser in this build; not transcribing", provider
-        )
-        return None
+    elif (registered := _registered_provider(provider)) is not None:
+        # An edition-registered provider. Same contract as every branch here:
+        # text, "" for silence, or None -- never an exception.
+        try:
+            result = await registered.transcribe_file(audio_path, stt_config)
+        except Exception:
+            logger.warning("STT provider %r failed to transcribe", provider, exc_info=True)
+            return None
+        if result is not None and not isinstance(result, str):
+            logger.warning("STT provider %r returned a non-text result", provider)
+            return None
     else:
         # ``local``. The config loader admits only the selectable providers: a
         # retired name has already become ``local``, an unknown one ``off``
-        # (refused above), and a registered one was refused just above.
+        # (refused above), and a registered one was dispatched just above.
         result = await _transcribe_local(audio_path, stt_config)
 
     if result:
